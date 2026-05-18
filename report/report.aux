@@ -1,0 +1,68 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\bibstyle{agsm}
+\citation{narasimhan2015language}
+\citation{cote2018textworld}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\citation{narasimhan2015language}
+\citation{van2016deep}
+\citation{wang2016dueling}
+\citation{schaul2015prioritized}
+\citation{hessel2018rainbow}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Literature Review}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}The Foundation: LSTM-DQN and Language Grounding}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Architectural Synergies: Toward Rainbow DQN}{2}{subsection.2.2}\protected@file@percent }
+\citation{ammanabrolu2019playing}
+\citation{hausknecht2020interactive}
+\citation{cote2018textworld}
+\citation{jansen2022textworldexpress}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces The evolution from the original DQN to Double DQN and Dueling DQN, addressing action-value overestimation and variance.}}{3}{figure.caption.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces The integrated components of Rainbow DQN, combining six independent improvements to achieve state-of-the-art sample efficiency.}}{3}{figure.caption.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Graph-based vs. Neural Representations}{3}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Benchmarking and Evaluation: Jericho and TextWorldExpress}{3}{subsection.2.4}\protected@file@percent }
+\citation{sanh2019distilbert}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology}{4}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Environment and Problem Formulation}{4}{subsection.3.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces The standard Markov Decision Process (MDP) loop, illustrating the interaction between the agent and the environment.}}{4}{figure.caption.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Proposed Agent: D3QN-Transformer}{4}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.1}Representation Learning with DistilBERT}{4}{subsubsection.3.2.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces DistilBERT architecture processing the joint observation-action sequence to generate a highly contextualised embedding.}}{5}{figure.caption.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.2}Dueling Architecture and Aggregation}{5}{subsubsection.3.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.3}Partial Unfreezing Strategy}{6}{subsubsection.3.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Baseline Architecture: LSTM-DQN}{6}{subsection.3.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Baseline LSTM-DQN architecture. A sequential model that processes observations independently of actions before ranking them via a flat linear layer.}}{6}{figure.caption.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Proposed Architecture: D3QN-Transformer}{6}{subsection.3.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Proposed D3QN-Transformer architecture. Key modifications include the use of cross-attention for state-action interaction and a Dueling head for stable value estimation.}}{7}{figure.caption.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Training Protocol}{7}{subsection.3.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experiments and Results}{7}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Experimental Setup}{7}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Individual Training Progress}{8}{subsection.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Individual training trajectories over 50 episodes. The blue lines represent raw normalized rewards per episode, and the red lines indicate the 5-episode rolling mean. The D3QN agent shows a higher peak potential despite the expected initial variance of a larger Transformer model.}}{8}{figure.caption.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Comparative Analysis}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Comparative learning curves in `Cooking World'. Curves are smoothed using a window of 5 episodes to show long-term trends.}}{9}{figure.caption.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Sample Agent Trajectory}{9}{subsection.4.4}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {1}{\ignorespaces Sample interaction from D3QN agent in Cooking World}}{9}{lstlisting.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Performance Analysis}{9}{subsection.4.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Comparative performance in `Cooking World' (50 Episodes)}}{9}{table.caption.9}\protected@file@percent }
+\citation{chen2021decision}
+\citation{yao2020keep}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Discussion}{10}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}The Power of Value-Advantage Separation}{10}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Comparative Analysis and Limitations}{10}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Ethical and Societal Implications}{10}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{11}{section.6}\protected@file@percent }
+\bibcite{ammanabrolu2019playing}{{1}{2019}{{Ammanabrolu and Riedl}}{{}}}
+\bibcite{chen2021decision}{{2}{2021}{{Chen et al.}}{{}}}
+\bibcite{cote2018textworld}{{3}{2018}{{Côté et al.}}{{}}}
+\bibcite{hausknecht2020interactive}{{4}{2020}{{Hausknecht et al.}}{{}}}
+\bibcite{hessel2018rainbow}{{5}{2018}{{Hessel et al.}}{{}}}
+\bibcite{jansen2022textworldexpress}{{6}{2022}{{Jansen}}{{}}}
+\bibcite{narasimhan2015language}{{7}{2015}{{Narasimhan et al.}}{{}}}
+\bibcite{sanh2019distilbert}{{8}{2019}{{Sanh et al.}}{{}}}
+\bibcite{schaul2015prioritized}{{9}{2015}{{Schaul et al.}}{{}}}
+\bibcite{singh2021reading}{{10}{2021}{{Singh et al.}}{{}}}
+\bibcite{van2016deep}{{11}{2016}{{Van Hasselt et al.}}{{}}}
+\bibcite{wang2016dueling}{{12}{2016}{{Wang et al.}}{{}}}
+\gdef \@abspage@last{12}
