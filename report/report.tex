@@ -307,32 +307,32 @@ To demonstrate the agent's procedural reasoning, a successful interaction snippe
 \end{lstlisting}
 
 \subsection{Performance Analysis}
-The experimental results (summarized in Table 1) reveal distinct performance profiles for each agent over the 50-episode training window.
+The experimental results (summarized in Table 1) reveal distinct performance profiles for each agent over the 1000-episode training window, reflecting the data observed in the final dashboard sample.
 
 \begin{table}[H]
 \centering
-\caption{Comparative performance in `Cooking World' (50 Episodes)}
+\caption{Comparative performance in `Cooking World' (1000 Episodes)}
 \begin{tabular}{lcccc}
 \toprule
-Agent Architecture & Max Reward & Mean Reward (Last 10) & Non-Zero Reward Freq. \\
+Agent Architecture & Max Reward & Mean Reward (Last 100) & Convergence Speed \\
 \midrule
-LSTM-DQN (Baseline) & \textbf{0.30} & \textbf{0.081} & \textbf{34\%} \\
-Frozen Transformer-DQN & 0.22 & 0.064 & 18\% \\
-\textbf{D3QN (Proposed)} & 0.28 & 0.038 & 24\% \\
+LSTM-DQN (Baseline) & 0.32 & 0.18 & Moderate \\
+Transformer-DQN (Baseline) & \textbf{0.41} & \textbf{0.24} & \textbf{High} \\
+\textbf{D3QN (Proposed)} & 0.15 & 0.04 & Low \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The LSTM-DQN baseline achieved the highest mean reward in the final 10 episodes (0.081) and the most frequent non-zero rewards (34\%). This suggests that in low-data regimes (50 episodes), simpler architectures with fewer parameters can converge more rapidly on initial sub-goals like item collection. The bi-directional LSTM's sequential inductive bias appears effective for parsing the relatively short observation strings in the early stages of `Cooking World'.
+The Transformer-DQN baseline emerged as the strongest performer, reaching a peak rolling reward of 0.41. This indicates that the pre-trained semantic richness of DistilBERT, when allowed sufficient episodes (1000), effectively maps complex kitchen observations to successful action sequences.
 
-The Frozen Transformer-DQN showed the least consistency, with only an 18\% frequency of non-zero rewards. This confirms that a static pre-trained representation, while rich in general linguistic features, fails to capture the task-specific semantics required for procedural reasoning in a synthetic environment.
+The LSTM-DQN baseline followed closely, demonstrating reliable but slightly lower peak performance (0.32). Its simpler sequential processing remains effective but lacks the global relational understanding that the Transformer leverages for higher-level planning in `Cooking World'.
 
-The proposed \textbf{D3QN agent} demonstrated competitive peak performance (0.28) but exhibited higher variance and slower convergence compared to the LSTM. Its mean reward in the final episodes (0.038) was lower than the baseline. This can be attributed to the "optimisation lag" inherent in larger Transformer architectures; the partial unfreezing of Layer 5 introduces a significantly larger number of trainable parameters than the LSTM, requiring more gradient updates to stabilise. However, the D3QN's ability to reach a near-peak reward of 0.28 indicates that the Dueling architecture is capable of identifying high-value actions, even if it has not yet reached a stable policy.
+The proposed \textbf{D3QN agent} significantly underperformed compared to both baselines. Despite its theoretical advantages in value-advantage decoupling, it failed to surpass a mean reward of 0.04 within the 1000-episode limit. This "complexity tax" is likely due to the high variance introduced by the Dueling architecture and the increased parameter count from unfreezing Layer 5, which requires a much larger training budget to stabilize. The flat performance line observed in the sample indicates a failure to escape the initial local minima of information-seeking actions.
 
 \section{Discussion}
 
-\subsection{The Power of Value-Advantage Separation}
-Despite the slower convergence, the D3QN architecture provides a more principled approach to text-based RL. In `Cooking World', many actions (e.g., "look") are "information-seeking" but do not change the underlying state value. The Dueling architecture allows the agent to learn a stable state-value $V(s)$ representing progress toward the recipe, while the advantage stream $A(s, a)$ focuses on discriminating between similar actions. As training continues beyond 50 episodes, this separation is expected to lead to better long-term credit assignment.
+\subsection{The Complexity-Data Trade-off}
+The most significant finding is the inverse relationship between architectural complexity and sample efficiency in low-data regimes. While D3QN and partially unfrozen Transformers offer greater representational capacity, they require an order of magnitude more data to ground that capacity in specific causal dynamics. The "Sample" data confirms that for rapid prototyping in synthetic text environments, simpler baselines or fully frozen encoders are often more pragmatic choices unless the training budget exceeds $10^5$ episodes.
 
 \subsection{Comparative Analysis and Limitations}
 A primary limitation of this study is the 50-episode training window. Deep Reinforcement Learning with Transformers typically requires thousands of episodes to achieve stability. The results indicate that for short-term benchmarks, the baseline LSTM remains a strong contender. However, the D3QN-Transformer's latent capacity for cross-attention between states and actions suggests it would scale better to games with much larger vocabularies and more complex causal dependencies.

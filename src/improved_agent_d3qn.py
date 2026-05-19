@@ -6,6 +6,7 @@ import random
 import json
 import os
 import logging
+import wandb
 from collections import deque
 from textworld_express import TextWorldExpressEnv
 from transformers import DistilBertModel, DistilBertTokenizer
@@ -13,17 +14,17 @@ from transformers import DistilBertModel, DistilBertTokenizer
 # --- Constants & Hyperparameters ---
 SEED = 42
 GAMMA = 0.95
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 REPLAY_BUFFER_CAPACITY = 20000
 LEARNING_RATE = 5e-5
 EPSILON_START = 1.0
 EPSILON_END = 0.1
-DECAY_EPISODES = 8000
+DECAY_EPISODES = 240
 TARGET_UPDATE_FREQ = 50
 MAX_STEPS_PER_EPISODE = 20
 MAX_SEQ_LEN = 128
-NUM_EPISODES = 10000
-CHECKPOINT_FREQ = 1000
+NUM_EPISODES = 300
+CHECKPOINT_FREQ = 100
 
 # --- Setup Logging ---
 os.makedirs("logs", exist_ok=True)
@@ -55,7 +56,6 @@ class D3QNTransformer(nn.Module):
         self.encoder = DistilBertModel.from_pretrained(model_name)
         
         # Partial Unfreezing: Freeze layers 0-4, unfreeze Layer 5
-        # DistilBERT has 6 transformer layers (0 to 5)
         for i, layer in enumerate(self.encoder.transformer.layer):
             if i < 5:
                 for param in layer.parameters():
@@ -123,6 +123,22 @@ class ReplayBuffer:
 def train():
     set_seed(SEED)
     
+    # Initialize wandb with fixed ID for consistent resuming on the same line
+    wandb.init(
+        project="aaia-pj2",
+        name="improved-d3qn",
+        id="improved-d3qn-final",
+        resume="allow",
+        config={
+            "seed": SEED,
+            "gamma": GAMMA,
+            "batch_size": BATCH_SIZE,
+            "learning_rate": LEARNING_RATE,
+            "decay_episodes": DECAY_EPISODES,
+            "architecture": "D3QN-DistilBERT"
+        }
+    )
+    
     # Enable MPS hardware acceleration if available
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -147,11 +163,42 @@ def train():
     epsilon = EPSILON_START
     epsilon_decay_step = (EPSILON_START - EPSILON_END) / DECAY_EPISODES
     
+    start_episode = 1
     episode_rewards = []
     
+    # Check for existing results to resume
+    if os.path.exists("results/improved_d3qn_rewards.json"):
+        try:
+            with open("results/improved_d3qn_rewards.json", "r") as f:
+                data = json.load(f)
+                episode_rewards = data["rewards"]
+                start_episode = len(episode_rewards) + 1
+                logging.info(f"Resuming from episode {start_episode}")
+                
+                # Load latest checkpoint
+                ckpt_path = f"checkpoints/improved_d3qn_ep{((start_episode-1)//CHECKPOINT_FREQ)*CHECKPOINT_FREQ}.pth"
+                if not os.path.exists(ckpt_path):
+                    for e in range(start_episode-1, 0, -1):
+                        test_path = f"checkpoints/improved_d3qn_ep{e}.pth"
+                        if os.path.exists(test_path):
+                            ckpt_path = test_path
+                            break
+
+                if os.path.exists(ckpt_path):
+                    online_model.load_state_dict(torch.load(ckpt_path, weights_only=True))
+                    target_model.load_state_dict(online_model.state_dict())
+                    logging.info(f"Loaded checkpoint {ckpt_path}")
+                
+                # Adjust epsilon
+                for e in range(1, start_episode):
+                    if e <= DECAY_EPISODES:
+                        epsilon = max(EPSILON_END, EPSILON_START - e * epsilon_decay_step)
+        except Exception as e:
+            logging.error(f"Error loading resume data: {e}")
+
     logging.info(f"Starting training for {NUM_EPISODES} episodes on 'cookingworld'...")
     
-    for episode in range(1, NUM_EPISODES + 1):
+    for episode in range(start_episode, NUM_EPISODES + 1):
         obs, info = env.reset(gameName="cookingworld")
         total_reward = 0
         done = False
@@ -169,7 +216,8 @@ def train():
             else:
                 online_model.eval()
                 with torch.no_grad():
-                    q_values = online_model([obs], [valid_actions], tokenizer, device)[0]
+                    with torch.amp.autocast('cuda'):
+                        q_values = online_model([obs], [valid_actions], tokenizer, device)[0]
                     action_idx = q_values.argmax().item()
                     action = valid_actions[action_idx]
                 online_model.train()
@@ -196,7 +244,9 @@ def train():
                 b_next_valid_actions = [x[5] for x in batch]
                 b_dones = torch.tensor([x[6] for x in batch], dtype=torch.float).to(device)
                 
-                qs_online_current = online_model(b_obs, b_valid_actions, tokenizer, device)
+                with torch.amp.autocast('cuda'):
+                    qs_online_current = online_model(b_obs, b_valid_actions, tokenizer, device)
+                
                 curr_q_list = []
                 for i in range(BATCH_SIZE):
                     try:
@@ -214,8 +264,9 @@ def train():
                         nt_next_obs = [b_next_obs[i] for i in non_terminal_indices]
                         nt_next_valid_actions = [b_next_valid_actions[i] for i in non_terminal_indices]
                         
-                        qs_next_online = online_model(nt_next_obs, nt_next_valid_actions, tokenizer, device)
-                        qs_next_target = target_model(nt_next_obs, nt_next_valid_actions, tokenizer, device)
+                        with torch.amp.autocast('cuda'):
+                            qs_next_online = online_model(nt_next_obs, nt_next_valid_actions, tokenizer, device)
+                            qs_next_target = target_model(nt_next_obs, nt_next_valid_actions, tokenizer, device)
                         
                         for idx, nt_idx in enumerate(non_terminal_indices):
                             if len(nt_next_valid_actions[idx]) > 0:
@@ -223,13 +274,21 @@ def train():
                                 target_val = b_rewards[nt_idx] + GAMMA * qs_next_target[idx][best_action_idx]
                                 target_q[nt_idx] = target_val
                 
-                loss = nn.MSELoss()(curr_q, target_q)
+                with torch.amp.autocast('cuda'):
+                    loss = nn.MSELoss()(curr_q, target_q)
                 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                
+                wandb.log({"loss": loss.item()}, commit=False)
         
         episode_rewards.append(total_reward)
+        wandb.log({
+            "episode": episode,
+            "reward": total_reward,
+            "epsilon": epsilon
+        })
         
         # Linear Epsilon Decay
         if episode <= DECAY_EPISODES:
@@ -264,6 +323,7 @@ def train():
     with open("results/improved_d3qn_rewards.json", "w") as f:
         json.dump(output_data, f, indent=4)
     logging.info("Training complete. Rewards saved to results/improved_d3qn_rewards.json")
+    wandb.finish()
 
 if __name__ == "__main__":
     train()

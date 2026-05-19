@@ -6,23 +6,24 @@ import random
 import json
 import os
 import logging
+import wandb
 from collections import deque
 from textworld_express import TextWorldExpressEnv
 
 # --- Constants & Hyperparameters ---
 SEED = 42
 GAMMA = 0.95
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 REPLAY_BUFFER_CAPACITY = 50000
 LEARNING_RATE = 1e-3
 EPSILON_START = 1.0
 EPSILON_END = 0.1
-DECAY_EPISODES = 8000
+DECAY_EPISODES = 240
 TARGET_UPDATE_FREQ = 50
 MAX_STEPS_PER_EPISODE = 20
 MAX_SEQ_LEN = 256
-NUM_EPISODES = 10000
-CHECKPOINT_FREQ = 1000
+NUM_EPISODES = 300
+CHECKPOINT_FREQ = 100
 
 # --- Setup Logging ---
 os.makedirs("logs", exist_ok=True)
@@ -116,6 +117,22 @@ def tokenize(texts, vocab, max_len=MAX_SEQ_LEN):
 def train():
     set_seed(SEED)
     
+    # Initialize wandb with fixed ID for consistent resuming on the same line
+    wandb.init(
+        project="aaia-pj2",
+        name="baseline-lstm",
+        id="baseline-lstm-final",
+        resume="allow",
+        config={
+            "seed": SEED,
+            "gamma": GAMMA,
+            "batch_size": BATCH_SIZE,
+            "learning_rate": LEARNING_RATE,
+            "decay_episodes": DECAY_EPISODES,
+            "architecture": "LSTM-DQN"
+        }
+    )
+    
     # Enable MPS hardware acceleration if available
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -139,11 +156,42 @@ def train():
     epsilon = EPSILON_START
     epsilon_decay_step = (EPSILON_START - EPSILON_END) / DECAY_EPISODES
     
+    start_episode = 1
     episode_rewards = []
+    
+    # Check for existing results to resume rewards
+    if os.path.exists("results/baseline_lstm_rewards.json"):
+        try:
+            with open("results/baseline_lstm_rewards.json", "r") as f:
+                data = json.load(f)
+                episode_rewards = data["rewards"]
+                start_episode = len(episode_rewards) + 1
+                logging.info(f"Resuming from episode {start_episode}")
+                
+                # Load latest checkpoint if resuming
+                ckpt_path = f"checkpoints/baseline_lstm_ep{((start_episode-1)//CHECKPOINT_FREQ)*CHECKPOINT_FREQ}.pth"
+                if os.path.exists(ckpt_path):
+                    model.load_state_dict(torch.load(ckpt_path, weights_only=True))
+                    target_model.load_state_dict(model.state_dict())
+                    logging.info(f"Loaded checkpoint {ckpt_path}")
+                else:
+                    # Try ep600 or others if freq changed
+                    back_ckpt = f"checkpoints/baseline_lstm_ep600.pth"
+                    if os.path.exists(back_ckpt):
+                        model.load_state_dict(torch.load(back_ckpt, weights_only=True))
+                        target_model.load_state_dict(model.state_dict())
+                        logging.info(f"Loaded back-checkpoint {back_ckpt}")
+
+                # Adjust epsilon for resume
+                for e in range(1, start_episode):
+                    if e <= DECAY_EPISODES:
+                        epsilon = max(EPSILON_END, EPSILON_START - e * epsilon_decay_step)
+        except Exception as e:
+            logging.error(f"Error loading resume data: {e}")
     
     logging.info(f"Starting training loop ({NUM_EPISODES} episodes) on 'cookingworld'...")
     
-    for episode in range(1, NUM_EPISODES + 1):
+    for episode in range(start_episode, NUM_EPISODES + 1):
         obs, info = env.reset(gameName="cookingworld")
         total_reward = 0
         done = False
@@ -162,7 +210,8 @@ def train():
                 model.eval()
                 with torch.no_grad():
                     input_ids, masks = tokenize(sa_strings, vocab)
-                    q_values = model(input_ids.to(device), masks.to(device))
+                    with torch.amp.autocast('cuda'):
+                        q_values = model(input_ids.to(device), masks.to(device))
                     action_idx = q_values.argmax().item()
                 model.train()
             
@@ -182,7 +231,9 @@ def train():
                 
                 curr_sa_strings = [f"{b[0]} [SEP] {b[1]}" for b in batch]
                 ids, masks = tokenize(curr_sa_strings, vocab)
-                q_values = model(ids.to(device), masks.to(device))
+                
+                with torch.amp.autocast('cuda'):
+                    q_values = model(ids.to(device), masks.to(device))
                 
                 targets = []
                 for b_obs, b_action, b_reward, b_next_obs, b_next_actions, b_done in batch:
@@ -192,17 +243,27 @@ def train():
                         with torch.no_grad():
                             next_sa_strings = [f"{b_next_obs} [SEP] {a}" for a in b_next_actions]
                             n_ids, n_masks = tokenize(next_sa_strings, vocab)
-                            next_q_vals = target_model(n_ids.to(device), n_masks.to(device))
+                            with torch.amp.autocast('cuda'):
+                                next_q_vals = target_model(n_ids.to(device), n_masks.to(device))
                             targets.append(b_reward + GAMMA * next_q_vals.max().item())
                 
                 targets = torch.tensor(targets, dtype=torch.float).to(device)
-                loss = nn.MSELoss()(q_values, targets)
+                
+                with torch.amp.autocast('cuda'):
+                    loss = nn.MSELoss()(q_values, targets)
                 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                
+                wandb.log({"loss": loss.item()}, commit=False)
         
         episode_rewards.append(total_reward)
+        wandb.log({
+            "episode": episode,
+            "reward": total_reward,
+            "epsilon": epsilon
+        })
         
         # Linear Epsilon Decay
         if episode <= DECAY_EPISODES:
@@ -237,6 +298,7 @@ def train():
     with open("results/baseline_lstm_rewards.json", "w") as f:
         json.dump(output_data, f, indent=4)
     logging.info("Training complete. Rewards saved to results/baseline_lstm_rewards.json")
+    wandb.finish()
 
 if __name__ == "__main__":
     train()

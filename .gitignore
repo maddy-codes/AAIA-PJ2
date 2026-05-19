@@ -1,5 +1,21 @@
 __pycache__/
+*.py[cod]
+
 .DS_Store
+
+# Environments
 .venv/
+env/
+venv/
+
+# Deep Learning / Experiments
 checkpoints/
 logs/
+wandb/
+old_results/
+*.pth
+*.pt
+
+# IDEs & Agents
+.gemini/
+.codeboarding/
